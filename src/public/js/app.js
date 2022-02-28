@@ -27,6 +27,9 @@ function handleSubmit(event) {
     event.preventDefault();
     const input = messageForm.querySelector("input");
     socket.send(makeMessage("new_message", input.value));
+    const li = document.createElement('li');
+    li.innerText = `You: ${input.value}`
+    messageList.append(li);
     input.value = ''; //보내고 나서 input 창 비워주는 역할
 }
 
@@ -34,6 +37,7 @@ function handleNicknameSubmit(event) {
     event.preventDefault();
     const input = nicknameForm.querySelector("input");
     socket.send(makeMessage("nickname", input.value)); // {} : JSon object 객체 전송
+    input.value = '';
 }
 
 messageForm.addEventListener("submit", handleSubmit)

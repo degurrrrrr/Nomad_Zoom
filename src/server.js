@@ -23,12 +23,19 @@ const sockets = [];
 //connection: 브라우저 연결되었을 때 실행하는거
 wss.on("connection", (socket) => {
     sockets.push(socket);
+    socket["nickname"] = "Anonymous";
     console.log("서버에서 브라우저와 연결!!!") 
     socket.on("close", () => console.log("client로부터 연결이 끊어져따"));
-    socket.on("message", message => {
-        const _message = message.toString('utf8');
-        sockets.forEach(aSocket => aSocket.send(_message))
-    });    
+    socket.on("message", msg => {
+        const _message = msg.toString('utf8');
+        const message = JSON.parse(_message);
+        switch (message.type){
+          case "new_message":
+            sockets.forEach((aSocket) => aSocket.send(`${socket.nickname}: ${message.payload}`));
+          case "nickname":
+            socket["nickname"] = message.payload;
+    };   
+  }); 
 });
 
 server.listen(5000, handleListen);
