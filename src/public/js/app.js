@@ -1,79 +1,86 @@
 const socket = io(); //socketIO를 프론트와 연결
 
-const welcome = document.getElementById('welcome');
-const form = welcome.querySelector('form');
-const room = document.getElementById('room');
+const myFace = document.getElementById('myFace');
+const muteBtn = document.getElementById('mute');
+const cameraBtn = document.getElementById('camera');
+const camerasSelect = document.getElementById('cameras');
 
-room.hidden = true;
+let myStream; //stream = video + audio
+let muted = false;
+let cameraOff = false;
 
-let roomName; //roomName을 만들어주는 것. 처음에는 비어있다.
-
-function addMessage(message) {
-  const ul = room.querySelector('ul');
-  const li = document.createElement('li');
-  li.innerText = message;
-  ul.appendChild(li);
-}
-
-function handleNicknameSubmit(event) {
-  event.preventDefault();
-  const input = nicknameForm.querySelector('input');
-  socket.emit('nickname', input.value);
-  input.value = '';
-}
-
-function handleMsgSubmit(event) {
-  event.preventDefault();
-  const input = room.querySelector('#msg input');
-  const value = input.value;
-  socket.emit('new_message', input.value, roomName, () => {
-    addMessage(`You: ${value}`);
-  });
-  input.value = '';
-}
-
-function showRoom() {
-  welcome.hidden = true;
-  room.hidden = false;
-  const h3 = room.querySelector('h3');
-  h3.innerText = `${roomName}에 입장하셨습니다`;
-  const msgForm = room.querySelector('#msg');
-  msgForm.addEventListener('submit', handleMsgSubmit);
-}
-
-function handleRoomSubmit(event) {
-  event.preventDefault();
-  const roomNameInput = welcome.querySelector('#roomName');
-  const nicknameInput = welcome.querySelector('#nickname');
-  socket.emit('enter_room', roomNameInput.value, nicknameInput.value, showRoom); //room이라는 event를 emit
-  roomName = roomNameInput.value; //join하면 input.value값으로 됨
-}
-
-form.addEventListener('submit', handleRoomSubmit);
-
-socket.on('welcome', (user, newCount) => {
-  const h3 = room.querySelector('h3');
-  h3.innerText = `${roomName}(${newCount}) `;
-  addMessage(`${user}님이 방에 입장하였습니다!`);
-});
-
-socket.on('bye', (left, newCount) => {
-  const h3 = room.querySelector('h3');
-  h3.innerText = `${roomName}(${newCount})`;
-  addMessage(`${left}님이 방에서 퇴장하였습니다`);
-});
-
-socket.on('room_change', (rooms) => {
-  const roomList = welcome.querySelector('ul');
-  roomList.innerHTML = '';
-  if (rooms.length === 0) {
-    return;
+async function getCameras(deviceId) {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cameras = devices.filter((device) => device.kind === 'videoinput');
+    const currentCamera = myStream.getVideoTracks()[0];
+    cameras.forEach((camera) => {
+      const option = document.createElement('option');
+      option.value = camera.deviceId;
+      option.innerText = camera.label;
+      // 기본 카메라가 먼저 선택되게끔
+      if (currentCamera.label === camera.label) {
+        option.selected = true;
+      }
+      camerasSelect.appendChild(option);
+    });
+  } catch (err) {
+    console.log(err);
   }
-  rooms.forEach((room) => {
-    const li = document.createElement('li');
-    li.innerText = room;
-    roomList.appendChild(li);
-  });
-});
+}
 
-socket.on('new_message', addMessage);
+async function getMedia(deviceId) {
+  // device가 없을 때 실행
+  const initialConstraints = {
+    audio: true,
+    video: { facingMode: 'user' },
+  };
+  // device가 있을 때 실행
+  const cameraConstraints = {
+    audio: true,
+    video: { deviceId: { exact: deviceId } },
+  };
+  try {
+    myStream = await navigator.mediaDevices.getUserMedia(deviceId ? cameraConstraints : initialConstraints);
+    myFace.srcObject = myStream; //stream을 myFace에 넣어주기
+    if (!deviceId) {
+      await getCameras(); //한 번만 실행되게
+    }
+  } catch (err) {
+    console.log(err);
+  }
+}
+
+getMedia();
+
+function handleMuteBtnClick() {
+  console.log(myStream.getAudioTracks());
+  myStream.getAudioTracks().forEach((track) => (track.enabled = !track.enabled));
+  if (!muted) {
+    muteBtn.innerText = 'Unmute';
+    muted = true;
+  } else {
+    muteBtn.innerText = 'Mute';
+    muted = false;
+  }
+}
+
+function handleCameraBtnClick() {
+  console.log(myStream.getVideoTracks());
+  myStream.getVideoTracks().forEach((track) => (track.enabled = !track.enabled));
+  if (cameraOff) {
+    cameraBtn.innerText = 'Turn camera On';
+    cameraOff = false;
+  } else {
+    cameraBtn.innerText = 'Turn camera Off';
+    cameraOff = true;
+  }
+}
+
+async function handleCameraChange() {
+  await getMedia(camerasSelect.value);
+}
+
+muteBtn.addEventListener('click', handleMuteBtnClick);
+cameraBtn.addEventListener('click', handleCameraBtnClick);
+camerasSelect.addEventListener('input', handleCameraChange);
