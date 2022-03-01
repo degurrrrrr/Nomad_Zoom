@@ -16,21 +16,24 @@ const httpServer = http.createServer(app); //http server 생성
 const wsServer = SocketIO(httpServer);
 
 wsServer.on('connection', (socket) => {
+  socket['nickname'] = '익명';
   socket.onAny((event) => {
     console.log(`Socket Event:  ${event}`);
   });
-  socket.on('enter_room', (roomName, done) => {
+  socket.on('enter_room', (roomName, nickname, done) => {
     socket.join(roomName);
+    socket['nickname'] = nickname;
     done();
-    socket.to(roomName).emit('welcome');
+    socket.to(roomName).emit('welcome', socket.nickname);
   });
   socket.on('disconnecting', () => {
-    socket.rooms.forEach((room) => socket.to(room).emit('bye'));
+    socket.rooms.forEach((room) => socket.to(room).emit('bye', socket.nickname));
   });
   socket.on('new_message', (msg, room, done) => {
-    socket.to(room).emit('new_message', msg);
+    socket.to(room).emit('new_message', `${socket.nickname}: ${msg}`);
     done();
   });
+  socket.on('nickname', (nickname) => (socket['nickname'] = nickname));
 });
 // const wss = new WebSocket.Server({ server }) //websocket에서 http 사용 (필수 아님, ws만 작동원하면 이것만)
 
